@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PackageGuard — Supply Chain Risk Scanner</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Header / Branding -->
+    <header class="header">
+      <div class="brand-badge">
+        Automated Dependency Threat Analysis
+      </div>
+      <h1 class="brand-title">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+        PackageGuard
+      </h1>
+      <p class="brand-subtitle">Pre-install supply-chain malware scanner and maintainer threat intelligence platform for npm and PyPI.</p>
+      <div class="engine-tag">
+        Static AST Engine: <a href="https://github.com/DataDog/guarddog" target="_blank" rel="noopener noreferrer">DataDog GuardDog</a> &bull; Maintainer OSINT: <a href="https://github.com/soxoj/maigret" target="_blank" rel="noopener noreferrer">Maigret</a> &bull; Framework: <a href="https://attack.mitre.org/" target="_blank" rel="noopener noreferrer">MITRE ATT&amp;CK&reg;</a>
+      </div>
+
+      <!-- Navigation Action Links -->
+      <nav class="header-nav" aria-label="Main Navigation">
+        <a href="{{ url_for('investigate_author') }}" class="btn-nav-link">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Maintainer OSINT Lab (Internet-Wide)
+        </a>
+      </nav>
+    </header>
+
+    <!-- Telemetry Stats Bar -->
+    <section class="telemetry-grid" aria-label="Security Telemetry">
+      <div class="telemetry-card">
+        <div class="telemetry-icon-box icon-slate">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+        </div>
+        <div class="telemetry-data">
+          <h4>Packages Inspected</h4>
+          <div class="metric">{{ telemetry_stats.total_scans }}</div>
+        </div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="telemetry-icon-box icon-red">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div class="telemetry-data">
+          <h4>Threats Intercepted</h4>
+          <div class="metric">{{ telemetry_stats.threats_detected }}</div>
+        </div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="telemetry-icon-box icon-green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <div class="telemetry-data">
+          <h4>Clean Packages</h4>
+          <div class="metric">{{ telemetry_stats.clean_packages }}</div>
+        </div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="telemetry-icon-box icon-amber">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="telemetry-data">
+          <h4>Top Observed Vector</h4>
+          <div class="metric-sub" title="{{ telemetry_stats.primary_threat }}">{{ telemetry_stats.primary_threat }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error Notice Banner -->
+    {% if error_message %}
+    <div class="alert-error" role="alert">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <strong>Scanner Notice:</strong> {{ error_message }}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Scanner Input Card -->
+    <section class="card" aria-label="Package Scanner Form">
+      <form action="{{ url_for('index') }}" method="POST" id="scanForm">
+        <div class="scanner-form-grid">
+          
+          <!-- Package Name Input -->
+          <div class="form-group">
+            <label for="package_name">Package Name</label>
+            <input 
+              type="text" 
+              id="package_name" 
+              name="package_name" 
+              class="input-control" 
+              placeholder="e.g. requests, express, lodash, colorama" 
+              value="{{ selected_package }}" 
+              required
+              autocomplete="off"
+            >
+          </div>
+
+          <!-- Ecosystem Selection -->
+          <div class="form-group">
+            <label for="ecosystem">Ecosystem</label>
+            <select id="ecosystem" name="ecosystem" class="input-control">
+              <option value="pypi" {% if selected_ecosystem == 'pypi' %}selected{% endif %}>PyPI (Python)</option>
+              <option value="npm" {% if selected_ecosystem == 'npm' %}selected{% endif %}>npm (JavaScript)</option>
+            </select>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="submitBtn" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Scan Package
+          </button>
+        </div>
+
+        <!-- Quick Demo Chips -->
+        <div class="quick-samples">
+          <span style="font-weight: 700; color: var(--text-muted);">Quick Demo Packages:</span>
+          <button type="button" class="sample-btn" onclick="fillForm('requests', 'pypi')">requests (PyPI clean)</button>
+          <button type="button" class="sample-btn" onclick="fillForm('express', 'npm')">express (npm reflection)</button>
+          <button type="button" class="sample-btn" onclick="fillForm('reqeusts-backdoor', 'pypi')">reqeusts-backdoor (PyPI malware)</button>
+        </div>
+
+        <!-- Professional Progress Tracker (Replaced Gimmicky Radar Sweep) -->
+        <div id="progressOverlay" class="progress-overlay">
+          <div class="progress-header">
+            <span id="progressStepText" class="progress-step-text">
+              <span class="spinner" style="width:14px; height:14px; display:inline-block; border:2px solid #cbd5e1; border-top-color:var(--primary); border-radius:50%; animation: spin 0.8s linear infinite;"></span>
+              1/4: Querying registry API &amp; fetching tarball...
+            </span>
+            <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Scanning</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-subtext">
+            Decompressing in sandbox &bull; Parsing AST with GuardDog &bull; Profiling maintainer via Maigret &bull; Correlating MITRE ATT&amp;CK
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Active Scan Result Section -->
+    {% if active_scan %}
+    <section class="card result-card card-{{ active_scan.badge_class }}" aria-label="Scan Report">
+      
+      <!-- Result Header -->
+      <div class="result-header">
+        <div class="result-package-info">
+          <h2>
+            {{ active_scan.package }}
+          </h2>
+
+          <!-- Prominent Direct Package Registry Jump Links -->
+          <div class="registry-link-bar">
+            {% if active_scan.ecosystem == 'npm' %}
+            <a href="{{ active_scan.registry_url or 'https://www.npmjs.com/package/' ~ active_scan.package }}" target="_blank" rel="noopener noreferrer" class="btn-registry btn-registry-npm" title="Jump to official npm registry listing">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0v24h24V0H0zm19.5 19.5h-4.5V9h-3v10.5H4.5V4.5h15v15z"/></svg>
+              View on npmjs.com &nearr;
+            </a>
+            {% else %}
+            <a href="{{ active_scan.registry_url or 'https://pypi.org/project/' ~ active_scan.package ~ '/' }}" target="_blank" rel="noopener noreferrer" class="btn-registry btn-registry-pypi" title="Jump to official PyPI project page">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-1.5 4.5h3v3h-3v-3zm6 15h-9v-1.5h9v1.5zm0-3h-9v-1.5h9v1.5zm0-3h-9v-1.5h9v1.5zm0-3h-9v-1.5h9v1.5z"/></svg>
+              View on PyPI.org &nearr;
+            </a>
+            {% endif %}
+
+            {% if active_scan.metadata and active_scan.metadata.repository %}
+            <a href="{{ active_scan.metadata.repository }}" target="_blank" rel="noopener noreferrer" class="btn-registry btn-registry-repo" title="View official source repository">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+              Source Repo &nearr;
+            </a>
+            {% endif %}
+
+            {% if active_scan.metadata and active_scan.metadata.version %}
+            <span class="badge-tag">v{{ active_scan.metadata.version }}</span>
+            {% endif %}
+
+            {% if active_scan.metadata and active_scan.metadata.license %}
+            <span class="badge-tag">License: {{ active_scan.metadata.license }}</span>
+            {% endif %}
+          </div>
+          
+          <div class="meta-tags">
+            <span class="badge-tag badge-ecosystem">{{ active_scan.ecosystem }}</span>
+            <span class="badge-tag">{{ active_scan.issues_count }} Heuristic(s) Flagged</span>
+            {% if active_scan.metadata and active_scan.metadata.author %}
+            <span class="badge-tag">Maintainer: {{ active_scan.metadata.author }}</span>
+            {% endif %}
+            {% if active_scan.created_at %}
+            <span class="badge-tag">Scanned: {{ active_scan.created_at }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Clean Score & Verdict Display (No AI Neon Gimmicks) -->
+        <div class="verdict-box">
+          <div class="score-display {{ active_scan.badge_class }}" title="Weighted Supply-Chain Risk Score (0-100)">
+            <div class="score-number">{{ active_scan.score }}</div>
+            <div class="score-denom">/ 100</div>
+          </div>
+
+          <div class="risk-badge badge-{{ active_scan.badge_class }}">
+            {% if active_scan.badge_class == 'low' %}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            SAFE TO INSTALL
+            {% elif active_scan.badge_class == 'medium' %}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            AUDIT REQUIRED
+            {% else %}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            CRITICAL MALWARE
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-bar">
+        {% if active_scan.id %}
+        <a href="{{ url_for('export_report', scan_id=active_scan.id) }}" class="btn-action" title="Download formal Markdown report">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export Security Report (.md)
+        </a>
+        {% endif %}
+        <button type="button" onclick="window.print()" class="btn-action" title="Print or save as PDF">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Print / Save PDF
+        </button>
+      </div>
+
+      <!-- Executive Verdict Summary -->
+      <div class="verdict-summary">
+        <strong>Executive Verdict:</strong> {{ active_scan.summary }}
+      </div>
+
+      <!-- Maintainer Threat Intelligence (Maigret OSINT) Section -->
+      {% if active_scan.author_osint %}
+      <div class="osint-section">
+        <div class="osint-header">
+          <div class="osint-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Maintainer Identity &amp; OSINT Footprint (Maigret Engine)
+          </div>
+          <div>
+            <a href="{{ url_for('investigate_author', username=active_scan.author_osint.username) }}" style="color:var(--primary); font-size:0.85rem; font-weight:700; text-decoration:none;">
+              Deep Author Profile &nearr;
+            </a>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.75rem;">
+          <div>
+            <span style="font-size:0.85rem; color:var(--text-muted);">Package Maintainer:</span>
+            <strong style="color:var(--text-main); font-size:1.05rem; margin-left:0.3rem;">@{{ active_scan.author_osint.username }}</strong>
+          </div>
+          <div>
+            <span class="risk-badge badge-{{ active_scan.author_osint.badge_class }}" style="padding:0.25rem 0.75rem; font-size:0.78rem;">
+              Reputation: {{ active_scan.author_osint.reputation_score }}/100 &bull; {{ active_scan.author_osint.reputation_verdict }}
+            </span>
+          </div>
+        </div>
+
+        <p style="font-size:0.9rem; color:var(--text-body); margin-bottom:0.75rem; line-height:1.5;">
+          {{ active_scan.author_osint.summary }}
+        </p>
+
+        {% if active_scan.author_osint.profiles and active_scan.author_osint.profiles|length > 0 %}
+        <div class="osint-profiles-grid">
+          {% for prof in active_scan.author_osint.profiles %}
+          <div class="osint-profile-card">
+            <div>
+              <strong>{{ prof.platform }}</strong>
+              <span>{{ prof.status }}</span>
+            </div>
+            <a href="{{ prof.url }}" target="_blank" rel="noopener noreferrer">
+              Verify &nearr;
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="background:var(--color-high-bg); border:1px solid var(--color-high-border); border-radius:4px; padding:0.75rem; font-size:0.85rem; color:var(--color-high-text);">
+          ⚠️ <strong>Ghost Account Alert:</strong> No active developer profile found on GitHub or GitLab for '@{{ active_scan.author_osint.username }}'. 82% of supply-chain malware originates from freshly created burner accounts.
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Multi-Vector Threat Breakdown Bars -->
+      <div class="threat-vectors-card">
+        <h4 class="threat-vectors-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+          </svg>
+          Multi-Vector Attack Surface Breakdown
+        </h4>
+        <div class="vectors-grid">
+          
+          <div class="vector-item">
+            <div class="vector-label">
+              <span>Initial Access (Typosquatting/Author)</span>
+              <span>{{ active_scan.category_scores.get('Initial Access', 0) }}%</span>
+            </div>
+            <div class="vector-track">
+              <div 
+                class="vector-fill {% if active_scan.category_scores.get('Initial Access', 0) >= 30 %}fill-high{% elif active_scan.category_scores.get('Initial Access', 0) > 0 %}fill-med{% else %}fill-low{% endif %}" 
+                style="width: {{ active_scan.category_scores.get('Initial Access', 0) }}%;"
+              ></div>
+            </div>
+          </div>
+
+          <div class="vector-item">
+            <div class="vector-label">
+              <span>Execution &amp; Lifecycle Hooks</span>
+              <span>{{ active_scan.category_scores.get('Execution & Hooks', 0) }}%</span>
+            </div>
+            <div class="vector-track">
+              <div 
+                class="vector-fill {% if active_scan.category_scores.get('Execution & Hooks', 0) >= 30 %}fill-high{% elif active_scan.category_scores.get('Execution & Hooks', 0) > 0 %}fill-med{% else %}fill-low{% endif %}" 
+                style="width: {{ active_scan.category_scores.get('Execution & Hooks', 0) }}%;"
+              ></div>
+            </div>
+          </div>
+
+          <div class="vector-item">
+            <div class="vector-label">
+              <span>Evasion &amp; Obfuscation (Base64/Packing)</span>
+              <span>{{ active_scan.category_scores.get('Evasion & Obfuscation', 0) }}%</span>
+            </div>
+            <div class="vector-track">
+              <div 
+                class="vector-fill {% if active_scan.category_scores.get('Evasion & Obfuscation', 0) >= 30 %}fill-high{% elif active_scan.category_scores.get('Evasion & Obfuscation', 0) > 0 %}fill-med{% else %}fill-low{% endif %}" 
+                style="width: {{ active_scan.category_scores.get('Evasion & Obfuscation', 0) }}%;"
+              ></div>
+            </div>
+          </div>
+
+          <div class="vector-item">
+            <div class="vector-label">
+              <span>Data Exfiltration &amp; Tokens</span>
+              <span>{{ active_scan.category_scores.get('Data Exfiltration', 0) }}%</span>
+            </div>
+            <div class="vector-track">
+              <div 
+                class="vector-fill {% if active_scan.category_scores.get('Data Exfiltration', 0) >= 30 %}fill-high{% elif active_scan.category_scores.get('Data Exfiltration', 0) > 0 %}fill-med{% else %}fill-low{% endif %}" 
+                style="width: {{ active_scan.category_scores.get('Data Exfiltration', 0) }}%;"
+              ></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Detected Threat Heuristics & 3-Point Plain English Triage -->
+      <div class="findings-section">
+        <h3 class="findings-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Detected Threat Findings &amp; Plain-English Triage ({{ active_scan.flagged_rules|length }})
+        </h3>
+
+        {% if active_scan.flagged_rules|length == 0 %}
+        <div style="background-color: var(--color-low-bg); border: 1px solid var(--color-low-border); color: var(--color-low-text); border-radius: var(--radius-sm); padding: 1.1rem; display: flex; align-items: center; gap: 0.75rem;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <div>
+            <strong>Clean Dependency Verified:</strong> GuardDog analyzed this package against 30+ static AST security rules (obfuscation, sensitive file access, network exfiltration, install hooks) and detected 0 threats.
+          </div>
+        </div>
+        {% else %}
+          {% for rule in active_scan.flagged_rules %}
+          <div class="rule-card">
+            <div class="rule-header">
+              <div class="rule-title-group">
+                <span class="rule-sev-badge rule-sev-{{ rule.severity|lower }}">{{ rule.severity }}</span>
+                <span class="rule-name">{{ rule.name }}</span>
+                <span class="rule-id-tag">{{ rule.rule_id }}</span>
+                {% if rule.mitre_technique %}
+                <a href="{{ rule.mitre_url }}" target="_blank" rel="noopener noreferrer" class="mitre-pill" title="{{ rule.mitre_tactic }}">
+                  {{ rule.mitre_technique.split(':')[0] }} &nearr;
+                </a>
+                {% endif %}
+              </div>
+            </div>
+            
+            <div class="rule-body">
+              <!-- 3-Point Plain English Triage Stack -->
+              <div class="triage-container">
+                <div class="triage-step step-detected">
+                  <div class="triage-step-icon">🔍</div>
+                  <div class="triage-step-body">
+                    <div class="triage-step-title">1. What Was Detected (Plain English)</div>
+                    <div class="triage-step-text">{{ rule.plain_detection or rule.description }}</div>
+                  </div>
+                </div>
+
+                <div class="triage-step step-risk">
+                  <div class="triage-step-icon">💥</div>
+                  <div class="triage-step-body">
+                    <div class="triage-step-title">2. Potential Risk &amp; Practical Impact</div>
+                    <div class="triage-step-text">{{ rule.risk_impact or "Security anomaly identified in dependency." }}</div>
+                  </div>
+                </div>
+
+                <div class="triage-step step-action">
+                  <div class="triage-step-icon">🛡️</div>
+                  <div class="triage-step-body">
+                    <div class="triage-step-title">3. What You Should Do (DevSecOps Fix)</div>
+                    <div class="triage-step-text">{{ rule.what_to_do or rule.remediation }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Collapsible Technical Evidence Details -->
+              {% if rule.findings and rule.findings|length > 0 %}
+              <details class="evidence-details">
+                <summary>Inspect Technical Code Evidence &amp; AST Match ({{ rule.findings|length }} finding(s))</summary>
+                {% for finding in rule.findings %}
+                <div class="finding-item">
+                  {% if finding.location and finding.location != 'N/A' %}
+                  <div class="finding-loc">📍 Location: {{ finding.location }}</div>
+                  {% endif %}
+                  
+                  {% if finding.message %}
+                  <div class="finding-msg">{{ finding.message }}</div>
+                  {% endif %}
+
+                  {% if finding.code %}
+                  <pre class="finding-code"><code>{{ finding.code }}</code></pre>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </details>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+
+        <!-- Raw JSON for Examiners -->
+        <details class="evidence-details" style="margin-top:1rem;">
+          <summary>View Raw GuardDog Engine JSON Output (For Viva Examiners)</summary>
+          <pre class="finding-code" style="margin-top:0.5rem; max-height:280px; overflow-y:auto;"><code>{{ active_scan.raw_json_str }}</code></pre>
+        </details>
+      </div>
+
+    </section>
+    {% endif %}
+
+    <!-- Scan History Section -->
+    <section class="card" aria-label="Recent Scans History">
+      <div class="history-header">
+        <h3 class="history-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Recent Audit History (Local SQLite Store)
+        </h3>
+
+        <div class="history-controls">
+          <input 
+            type="text" 
+            id="historySearch" 
+            class="history-search-input" 
+            placeholder="Filter by package..." 
+            onkeyup="filterHistoryTable()"
+          >
+          {% if recent_scans and recent_scans|length > 0 %}
+          <form action="{{ url_for('clear_history') }}" method="POST" onsubmit="return confirm('Clear all scan history from the local database?');">
+            <button type="submit" class="sample-btn" style="color:var(--color-high-text);">Clear History</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="history-table" id="historyTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Package</th>
+              <th>Ecosystem</th>
+              <th>Risk Score</th>
+              <th>Verdict</th>
+              <th>Registry Link</th>
+              <th>Flagged</th>
+              <th>Timestamp</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if recent_scans and recent_scans|length > 0 %}
+              {% for scan in recent_scans %}
+              <tr>
+                <td>#{{ scan.id }}</td>
+                <td><strong class="pkg-name-cell">{{ scan.package_name }}</strong></td>
+                <td><span class="badge-tag badge-ecosystem">{{ scan.ecosystem }}</span></td>
+                <td>
+                  <strong>{{ scan.score }} / 100</strong>
+                </td>
+                <td>
+                  <span class="risk-badge badge-{{ scan.badge_class }}" style="padding: 0.15rem 0.5rem; font-size: 0.72rem;">
+                    {{ scan.verdict }}
+                  </span>
+                </td>
+                <td>
+                  {% if scan.registry_url %}
+                  <a href="{{ scan.registry_url }}" target="_blank" rel="noopener noreferrer">
+                    Registry &nearr;
+                  </a>
+                  {% else %}
+                  <span style="color:var(--text-muted);">-</span>
+                  {% endif %}
+                </td>
+                <td>{{ scan.flagged_count }} heuristic(s)</td>
+                <td style="color: var(--text-muted); font-size: 0.8rem;">{{ scan.created_at }}</td>
+                <td>
+                  <a href="{{ url_for('view_scan', scan_id=scan.id) }}">
+                    Inspect &rarr;
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">
+                  No packages scanned yet. Type a package name above to run your first security audit!
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div>PackageGuard &bull; Automated Supply Chain Security Risk Scanner &bull; College Project Viva Edition</div>
+      <div>
+        Detection engine powered by <a href="https://github.com/DataDog/guarddog" target="_blank" rel="noopener noreferrer">DataDog GuardDog</a> (Apache-2.0) &bull; Author OSINT by <a href="https://github.com/soxoj/maigret" target="_blank" rel="noopener noreferrer">Maigret</a>.
+        Taxonomy aligned with <a href="https://attack.mitre.org/" target="_blank" rel="noopener noreferrer">MITRE ATT&amp;CK for Enterprise</a>.
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Interactive Client-side Script -->
+  <script>
+    function fillForm(pkgName, ecosystem) {
+      document.getElementById('package_name').value = pkgName;
+      document.getElementById('ecosystem').value = ecosystem;
+      document.getElementById('package_name').focus();
+    }
+
+    const scanSteps = [
+      "1/4: Querying registry API & fetching package manifest...",
+      "2/4: Decompressing archive in sandbox & running GuardDog AST rules...",
+      "3/4: Profiling maintainer OSINT footprint via Maigret...",
+      "4/4: Correlating findings with MITRE ATT&CK & calculating risk score..."
+    ];
+
+    document.getElementById('scanForm').addEventListener('submit', function() {
+      const btn = document.getElementById('submitBtn');
+      const progress = document.getElementById('progressOverlay');
+      const stepText = document.getElementById('progressStepText');
+      
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      btn.innerHTML = `Scanning...`;
+      
+      progress.style.display = 'block';
+      
+      let step = 0;
+      setInterval(() => {
+        step = (step + 1) % scanSteps.length;
+        stepText.innerHTML = `<span class="spinner" style="width:14px; height:14px; display:inline-block; border:2px solid #cbd5e1; border-top-color:var(--primary); border-radius:50%; animation: spin 0.8s linear infinite; margin-right:6px;"></span> ${scanSteps[step]}`;
+      }, 3000);
+    });
+
+    function filterHistoryTable() {
+      const input = document.getElementById('historySearch');
+      const filter = input.value.toLowerCase();
+      const table = document.getElementById('historyTable');
+      const rows = table.getElementsByTagName('tr');
+
+      for (let i = 1; i < rows.length; i++) {
+        const cell = rows[i].querySelector('.pkg-name-cell');
+        if (cell) {
+          const text = cell.textContent || cell.innerText;
+          rows[i].style.display = text.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

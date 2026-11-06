@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintainer OSINT Lab — PackageGuard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Top Navigation Header -->
+    <header class="header">
+      <div class="brand-badge">
+        Maintainer Threat Intelligence Lab &bull; Internet-Wide OSINT
+      </div>
+      <h1 class="brand-title">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Maintainer OSINT Laboratory
+      </h1>
+      <p class="brand-subtitle">
+        Investigate developer footprints across the entire web (Social Networks, Developer Hubs, Messaging, Email &amp; Publishing) to intercept disposable attacker identities.
+      </p>
+      
+      <nav class="header-nav">
+        <a href="{{ url_for('index') }}" class="btn-nav-link">
+          &larr; Return to Package Scanner
+        </a>
+      </nav>
+    </header>
+
+    <!-- Why Author OSINT Matters Explainer Card -->
+    <section class="card" style="border-left: 4px solid var(--primary); background: #ffffff;">
+      <div style="display:flex; gap:1.25rem; align-items:flex-start;">
+        <div style="background:var(--primary-bg); border-radius:8px; padding:0.75rem; color:var(--primary); flex-shrink:0;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4 10z"/></svg>
+        </div>
+        <div>
+          <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-main); margin-bottom:0.35rem;">
+            Internet-Wide Maintainer Reconnaissance (Beyond Registries)
+          </h3>
+          <p style="font-size:0.9rem; color:var(--text-body); line-height:1.6;">
+            Over <strong>82% of supply-chain malware</strong> is deployed from newly created "throwaway burner" accounts. 
+            PackageGuard searches across the <strong>entire internet</strong> — querying social networks (Reddit, X, YouTube, Pinterest), developer platforms (GitHub, GitLab, DockerHub, npm, PyPI), messaging services (Telegram, Keybase), email domain intelligence, and publication platforms (Medium, Substack, Gravatar) to detect ghost maintainers and disposable burner identities.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Identity Lookup Form (Supports Usernames, Emails, Names, Domains) -->
+    <section class="card" aria-label="Identity OSINT Query Form">
+      <form action="{{ url_for('investigate_author') }}" method="GET">
+        <div class="scanner-form-grid" style="grid-template-columns: 1fr auto;">
+          <div class="form-group">
+            <label for="query">Target Identity (Username, Email, Full Name, or Domain)</label>
+            <input 
+              type="text" 
+              id="query" 
+              name="query" 
+              class="input-control" 
+              placeholder="e.g. kennethreitz, rqWjoSYS536980@outlook.com, tj, test@mailinator.com" 
+              value="{{ query or username }}" 
+              required
+              autocomplete="off"
+            >
+          </div>
+
+          <button type="submit" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Investigate Across Internet
+          </button>
+        </div>
+
+        <!-- Quick Demo Targets -->
+        <div class="quick-samples">
+          <span style="font-weight: 700; color: var(--text-muted);">Quick Demo Queries:</span>
+          <a href="{{ url_for('investigate_author', query='kennethreitz') }}" class="sample-btn">kennethreitz (Requests Author)</a>
+          <a href="{{ url_for('investigate_author', query='rqWjoSYS536980@outlook.com') }}" class="sample-btn">rqWjoSYS536980@outlook.com (ideos maintainer)</a>
+          <a href="{{ url_for('investigate_author', query='tj') }}" class="sample-btn">tj (Express.js Creator)</a>
+          <a href="{{ url_for('investigate_author', query='test@mailinator.com') }}" class="sample-btn">test@mailinator.com (Disposable Burner)</a>
+          <a href="{{ url_for('investigate_author', query='shadow_ops_temp99') }}" class="sample-btn">shadow_ops_temp99 (Ghost Handle)</a>
+        </div>
+      </form>
+    </section>
+
+    <!-- OSINT Result View -->
+    {% if osint_result %}
+    <section class="card result-card card-{{ osint_result.badge_class }}" aria-label="Internet Footprint Report">
+      <div class="result-header">
+        <div class="result-package-info">
+          <div style="font-size:0.8rem; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.25rem;">
+            Internet-Wide Identity Footprint &bull; Target: {{ osint_result.query_type }}
+          </div>
+          <h2>
+            {{ osint_result.query }}
+          </h2>
+          <div class="meta-tags">
+            <span class="badge-tag">{{ osint_result.accounts_found }} Discovered Account(s)</span>
+            <span class="badge-tag" style="background:#f1f5f9; color:var(--text-body);">{{ osint_result.categories_discovered|length }} Platform Categories</span>
+            {% if osint_result.is_ghost_author %}
+            <span class="badge-tag" style="background:var(--color-high-bg); color:var(--color-high-text); font-weight:700;">⚠️ Disposable Burner Identity Alert</span>
+            {% else %}
+            <span class="badge-tag" style="background:var(--color-low-bg); color:var(--color-low-text); font-weight:700;">✓ Verified Public Web Presence</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="verdict-box">
+          <div class="score-display {{ osint_result.badge_class }}" title="Identity Credibility Score">
+            <div class="score-number">{{ osint_result.reputation_score }}</div>
+            <div class="score-denom">/ 100</div>
+          </div>
+
+          <div class="risk-badge badge-{{ osint_result.badge_class }}">
+            {{ osint_result.reputation_verdict }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Email Domain Intelligence Box (If Query is an Email) -->
+      {% if osint_result.email_intel and osint_result.email_intel.email %}
+      <div style="margin-top:1.25rem; background:#f8fafc; border:1px solid var(--border-light); border-radius:8px; padding:1rem;">
+        <div style="font-weight:700; font-size:0.88rem; color:var(--text-main); margin-bottom:0.5rem; display:flex; align-items:center; gap:0.4rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Email &amp; Domain Intelligence:
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:1.25rem; font-size:0.85rem; color:var(--text-body);">
+          <div>Domain: <strong>{{ osint_result.email_intel.domain }}</strong></div>
+          <div>Classification: <strong>{{ osint_result.email_intel.classification }}</strong></div>
+          <div>Disposable Service: 
+            {% if osint_result.email_intel.is_disposable %}
+            <strong style="color:var(--color-high-text);">YES (High Risk)</strong>
+            {% else %}
+            <strong style="color:var(--color-low-text);">NO (Legitimate Host)</strong>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Verdict Summary -->
+      <div class="verdict-summary" style="margin-top:1.25rem;">
+        <strong>OSINT Assessment:</strong> {{ osint_result.summary }}
+      </div>
+
+      <!-- Discovered Profiles Across the Internet -->
+      <div style="margin-top: 1.5rem;">
+        <h4 style="font-size:1rem; font-weight:800; color:var(--text-main); margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4 10z"/></svg>
+          Verified Footprint Across the Internet ({{ osint_result.profiles|length }} discovery results)
+        </h4>
+
+        {% if osint_result.profiles|length == 0 %}
+        <div style="background:var(--color-high-bg); border:1px solid var(--color-high-border); border-radius:6px; padding:1.25rem; color:var(--color-high-text);">
+          <strong>Zero Verified Profiles:</strong> No accounts, repositories, or social profiles matching '{{ osint_result.query }}' were discovered across any major web platform. This target behaves identically to a temporary burner identity.
+        </div>
+        {% else %}
+        <div class="osint-profiles-grid">
+          {% for p in osint_result.profiles %}
+          <div class="osint-profile-card">
+            <div>
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <strong>{{ p.platform }}</strong>
+                <span style="font-size:0.7rem; background:#f1f5f9; color:var(--text-muted); padding:0.1rem 0.4rem; border-radius:4px;">{{ p.category }}</span>
+              </div>
+              <span>{{ p.status }}</span>
+            </div>
+            <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">
+              Inspect &nearr;
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div>PackageGuard &bull; Internet-Wide Maintainer OSINT &amp; Threat Intelligence Lab</div>
+      <div>Designed for Cybersecurity Course Evaluation &bull; Maigret Engine &amp; Web Reconnaissance</div>
+    </footer>
+
+  </div>
+</body>
+</html>
